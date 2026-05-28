@@ -36,6 +36,7 @@ The app also supports a runtime `config.json` at the site root:
 
 Supabase RLS should allow read-only `select` access for:
 
+- `assets`
 - `strategies`
 - `trades`
 - `current_positions`

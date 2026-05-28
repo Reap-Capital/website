@@ -18,10 +18,12 @@ const state = {
   loading: false,
   error: "",
   strategies: [],
+  assets: [],
   dashboard: null,
   analytics: null,
   ledger: null,
   selectedStrategies: new Set([GLOBAL_STRATEGY_ID]),
+  strategyMenuOpen: false,
   ledgerFilter: "all",
   tradePage: 1,
   charts: {},
@@ -77,10 +79,44 @@ function formatDateTime(value) {
   }).format(new Date(value));
 }
 
+function formatAxisDateTime(value) {
+  if (!value) return "-";
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
+function formatAxisDate(value) {
+  if (!value) return "-";
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "2-digit",
+  }).format(new Date(`${value}T00:00:00`));
+}
+
 function strategyName(id) {
   const strategy = state.strategies.find((item) => Number(item.id) === Number(id));
-  if (strategy) return strategy.name;
+  if (strategy) return Number(id) === GLOBAL_STRATEGY_ID ? "Global" : strategy.name;
   return Number(id) === GLOBAL_STRATEGY_ID ? "Global Portfolio" : `Strategy ${id}`;
+}
+
+function assetInfo(assetId) {
+  return state.assets.find((asset) => Number(asset.id) === Number(assetId));
+}
+
+function assetDisplay(assetId) {
+  const asset = assetInfo(assetId);
+  if (!asset) return String(assetId ?? "-");
+  const detail = [asset.name, asset.asset_class].filter(Boolean).join(" | ");
+  return `
+    <span class="asset-cell">
+      <strong>${asset.ticker}</strong>
+      ${detail ? `<small>${detail}</small>` : ""}
+    </span>
+  `;
 }
 
 function routeFromHash() {
@@ -121,6 +157,11 @@ async function loadStrategies() {
   const strategies = await queryOrThrow(supabase.from("strategies").select("id,name").order("id", { ascending: true }));
   const hasGlobal = strategies.some((item) => Number(item.id) === GLOBAL_STRATEGY_ID);
   state.strategies = hasGlobal ? strategies : [{ id: GLOBAL_STRATEGY_ID, name: "Global Portfolio" }, ...strategies];
+}
+
+async function loadAssets() {
+  if (!supabase || state.assets.length) return;
+  state.assets = await queryAll(() => supabase.from("assets").select("id,ticker,name,asset_class").order("ticker", { ascending: true }));
 }
 
 async function loadDashboard() {
@@ -171,6 +212,7 @@ async function loadRouteData(force = false) {
     state.dashboard = null;
     state.analytics = null;
     state.ledger = null;
+    state.assets = [];
   }
 
   state.loading = true;
@@ -178,6 +220,7 @@ async function loadRouteData(force = false) {
   render();
   try {
     await loadStrategies();
+    await loadAssets();
     if (state.route === "dashboard") await loadDashboard();
     if (state.route === "analytics") await loadAnalytics();
     if (state.route === "ledger") await loadLedger();
@@ -285,7 +328,7 @@ function renderDashboard() {
         </div>
         ${latestTrade ? `
           <dl class="trade-summary">
-            <div><dt>Asset</dt><dd>${latestTrade.asset_id}</dd></div>
+            <div><dt>Asset</dt><dd>${assetDisplay(latestTrade.asset_id)}</dd></div>
             <div><dt>Action</dt><dd>${latestTrade.action}</dd></div>
             <div><dt>Strategy</dt><dd>${strategyName(latestTrade.strategy_id)}</dd></div>
             <div><dt>Quantity</dt><dd>${formatQty(latestTrade.qty)}</dd></div>
@@ -309,6 +352,7 @@ function metricCard(label, value) {
 function renderAnalytics() {
   const data = state.analytics;
   if (!data) return emptyPanel("Waiting for analytics data");
+  const selectedCount = state.selectedStrategies.size;
   const strategyOptions = data.activeIds.map((id) => `
     <label class="strategy-toggle">
       <input type="checkbox" data-strategy-toggle="${id}" ${state.selectedStrategies.has(id) ? "checked" : ""} ${id === GLOBAL_STRATEGY_ID ? "disabled" : ""} />
@@ -322,7 +366,13 @@ function renderAnalytics() {
         <h2>Strategy visibility</h2>
         <p>All 30-day data is loaded once; toggles only hide or show cached series.</p>
       </div>
-      <div class="strategy-list">${strategyOptions}</div>
+      <div class="strategy-dropdown">
+        <button class="strategy-dropdown-button" type="button" data-strategy-menu-toggle aria-expanded="${state.strategyMenuOpen}">
+          ${selectedCount === 1 ? "Global only" : `${selectedCount} strategies`}
+          <span aria-hidden="true">v</span>
+        </button>
+        ${state.strategyMenuOpen ? `<div class="strategy-dropdown-panel">${strategyOptions}</div>` : ""}
+      </div>
     </section>
     <section class="chart-stack">
       ${chartPanel("Portfolio Equity", "equityChart", "main-chart")}
@@ -412,7 +462,7 @@ function positionsTable(rows, includeStrategy) {
           ${rows.map((row) => `
             <tr>
               ${includeStrategy ? `<td>${strategyName(row.strategy_id)}</td>` : ""}
-              <td>${row.asset_id}</td>
+              <td>${assetDisplay(row.asset_id)}</td>
               <td class="numeric">${formatQty(row.current_qty)}</td>
               <td class="numeric">${formatCurrency(row.avg_entry_price)}</td>
               <td class="numeric ${Number(row.unrealized_pnl) >= 0 ? "positive" : "negative"}">${formatCurrency(row.unrealized_pnl)}</td>
@@ -444,7 +494,7 @@ function tradesTable(rows) {
             <tr>
               <td>${formatDateTime(row.time)}</td>
               <td>${strategyName(row.strategy_id)}</td>
-              <td>${row.asset_id}</td>
+              <td>${assetDisplay(row.asset_id)}</td>
               <td><span class="action-pill">${row.action}</span></td>
               <td class="numeric">${formatCurrency(row.price)}</td>
               <td class="numeric">${formatQty(row.qty)}</td>
@@ -476,12 +526,16 @@ function bindEvents() {
     button.addEventListener("click", () => setRoute(button.dataset.route));
   });
   document.querySelector("[data-action='refresh']")?.addEventListener("click", () => loadRouteData(true));
+  document.querySelector("[data-strategy-menu-toggle]")?.addEventListener("click", () => {
+    state.strategyMenuOpen = !state.strategyMenuOpen;
+    render();
+  });
   document.querySelectorAll("[data-strategy-toggle]").forEach((input) => {
     input.addEventListener("change", () => {
       const id = Number(input.dataset.strategyToggle);
       if (input.checked) state.selectedStrategies.add(id);
       else state.selectedStrategies.delete(id);
-      renderCharts();
+      render();
     });
   });
   document.querySelector("[data-ledger-filter]")?.addEventListener("change", (event) => {
@@ -507,28 +561,34 @@ function destroyCharts() {
 function renderCharts() {
   if (!state.analytics) return;
   destroyCharts();
-  state.charts.equity = makeLineChart("equityChart", buildEquityDatasets(), "time");
-  state.charts.sharpe = makeLineChart("sharpeChart", buildMetricDatasets("sharpe_ratio"), "date");
-  state.charts.beta = makeLineChart("betaChart", buildMetricDatasets("beta"), "date");
-  state.charts.drawdown = makeLineChart("drawdownChart", buildMetricDatasets("max_drawdown"), "date");
+  state.charts.equity = makeLineChart("equityChart", buildEquitySeries(), "Timestamp");
+  state.charts.sharpe = makeLineChart("sharpeChart", buildMetricSeries("sharpe_ratio"), "Date");
+  state.charts.beta = makeLineChart("betaChart", buildMetricSeries("beta"), "Date");
+  state.charts.drawdown = makeLineChart("drawdownChart", buildMetricSeries("max_drawdown"), "Date");
 }
 
-function buildEquityDatasets() {
-  return datasetByStrategy(state.analytics.equity, "time", "total_equity");
+function buildEquitySeries() {
+  return seriesByStrategy(state.analytics.equity, "time", "total_equity", formatAxisDateTime);
 }
 
-function buildMetricDatasets(field) {
-  return datasetByStrategy(state.analytics.metrics, "date", field);
+function buildMetricSeries(field) {
+  return seriesByStrategy(state.analytics.metrics, "date", field, formatAxisDate);
 }
 
-function datasetByStrategy(rows, xField, yField) {
-  return Array.from(state.selectedStrategies).map((strategyId, index) => {
+function seriesByStrategy(rows, xField, yField, labelFormatter) {
+  const selectedRows = rows.filter((row) => state.selectedStrategies.has(Number(row.strategy_id)));
+  const xValues = Array.from(new Set(selectedRows.map((row) => row[xField]))).sort();
+  const labels = xValues.map(labelFormatter);
+  const datasets = Array.from(state.selectedStrategies).map((strategyId, index) => {
     const color = palette[index % palette.length];
+    const values = new Map(
+      rows
+        .filter((row) => Number(row.strategy_id) === Number(strategyId))
+        .map((row) => [row[xField], Number(row[yField]) || 0]),
+    );
     return {
       label: strategyName(strategyId),
-      data: rows
-        .filter((row) => Number(row.strategy_id) === Number(strategyId))
-        .map((row) => ({ x: row[xField], y: Number(row[yField]) || 0 })),
+      data: xValues.map((xValue) => values.get(xValue) ?? null),
       borderColor: color,
       backgroundColor: `${color}22`,
       borderWidth: 2,
@@ -537,32 +597,29 @@ function datasetByStrategy(rows, xField, yField) {
       fill: false,
     };
   });
+  return { labels, datasets };
 }
 
-function makeLineChart(id, datasets, xMode) {
+function makeLineChart(id, series, xTitle) {
   const canvas = document.querySelector(`#${id}`);
   if (!canvas) return null;
   return new Chart(canvas, {
     type: "line",
-    data: { datasets },
+    data: series,
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      parsing: false,
       animation: false,
       interaction: { mode: "nearest", intersect: false },
       plugins: {
         legend: { labels: { color: "#000000", usePointStyle: true, boxWidth: 8 } },
-        tooltip: {
-          callbacks: {
-            title: (items) => xMode === "time" ? formatDateTime(items[0]?.raw?.x) : items[0]?.raw?.x,
-          },
-        },
+        tooltip: { callbacks: { title: (items) => items[0]?.label ?? "" } },
       },
       scales: {
         x: {
           type: "category",
-          ticks: { color: "#000000", maxTicksLimit: 8 },
+          title: { display: true, text: xTitle, color: "#000000", font: { weight: "bold" } },
+          ticks: { color: "#000000", maxTicksLimit: 8, maxRotation: 0, autoSkip: true },
           grid: { display: false },
         },
         y: {
