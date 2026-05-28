@@ -32,7 +32,7 @@ const state = {
 let supabaseConfigured = false;
 let supabase = null;
 
-const palette = ["#000000", "#333333", "#666666", "#999999", "#111111", "#444444", "#777777", "#aaaaaa"];
+const palette = ["#7f0000", "#c1121f", "#e5383b", "#a4161a", "#d00000", "#9d0208", "#f48c06", "#6a040f"];
 
 const icons = { Activity, BarChart3, BriefcaseBusiness, ChevronLeft, ChevronRight, Database, RefreshCw, WalletCards };
 
