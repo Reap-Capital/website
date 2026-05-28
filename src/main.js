@@ -440,7 +440,10 @@ function renderLedger() {
         <span>Strategy</span>
         <select data-ledger-filter>
           <option value="all" ${state.ledgerFilter === "all" ? "selected" : ""}>All strategies</option>
-          ${state.strategies.map((strategy) => `<option value="${strategy.id}" ${String(state.ledgerFilter) === String(strategy.id) ? "selected" : ""}>${strategyName(strategy.id)}</option>`).join("")}
+          ${state.strategies
+            .filter((strategy) => Number(strategy.id) !== GLOBAL_STRATEGY_ID)
+            .map((strategy) => `<option value="${strategy.id}" ${String(state.ledgerFilter) === String(strategy.id) ? "selected" : ""}>${strategyName(strategy.id)}</option>`)
+            .join("")}
         </select>
       </label>
     </section>
