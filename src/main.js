@@ -276,11 +276,17 @@ function shell(content) {
             </button>
           `).join("")}
         </nav>
-        <button class="refresh-button" type="button" data-action="refresh">
-          <span>Refresh data</span>
-        </button>
+        <div class="sidebar-footer">
+          <div class="social-links" aria-label="External links">
+            <a href="https://github.com/cantsoar" target="_blank" rel="noreferrer">GitHub</a>
+            <a href="https://www.linkedin.com/in/aryan-malik-xd/" target="_blank" rel="noreferrer">LinkedIn</a>
+          </div>
+          <button class="refresh-button" type="button" data-action="refresh">
+            <span>Refresh data</span>
+          </button>
+        </div>
       </aside>
-      <main class="content">
+      <main class="content ${state.route}-content">
         <header class="topbar">
           <div>
             <p class="eyebrow">Live from Supabase</p>
@@ -374,7 +380,7 @@ function renderAnalytics() {
         ${state.strategyMenuOpen ? `<div class="strategy-dropdown-panel">${strategyOptions}</div>` : ""}
       </div>
     </section>
-    <section class="chart-stack">
+    <section class="chart-stack analytics-chart-stack">
       ${chartPanel("Portfolio Equity", "equityChart", "main-chart")}
       <div class="subchart-grid">
         ${chartPanel("Daily Rolling Sharpe", "sharpeChart", "")}
@@ -417,14 +423,14 @@ function renderLedger() {
         </select>
       </label>
     </section>
-    <section class="panel">
+    <section class="panel ledger-positions-panel">
       <div class="panel-heading">
         <h2>Current Positions</h2>
         <span>${positions.length} rows</span>
       </div>
       ${positionsTable(positions, true)}
     </section>
-    <section class="panel">
+    <section class="panel ledger-trades-panel">
       <div class="panel-heading">
         <h2>Trades</h2>
         <span>${trades.length} rows</span>

@@ -109,8 +109,28 @@ button:disabled {
   color: #000000;
 }
 
-.refresh-button {
+.sidebar-footer {
+  display: grid;
+  gap: 12px;
   margin-top: auto;
+}
+
+.social-links {
+  display: grid;
+  gap: 8px;
+}
+
+.social-links a {
+  display: block;
+  padding: 8px 12px;
+  border: 1px solid #ffffff;
+  color: #ffffff;
+  text-decoration: none;
+}
+
+.social-links a:hover {
+  background: #ffffff;
+  color: #000000;
 }
 
 .content {
@@ -462,7 +482,127 @@ select {
   }
 }
 
+@media (min-width: 1041px) and (min-height: 760px) {
+  html,
+  body,
+  #app {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .app-frame {
+    height: 100vh;
+    min-height: 0;
+  }
+
+  .content {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    min-height: 0;
+    overflow: hidden;
+    padding: 20px 22px;
+  }
+
+  .topbar {
+    flex: 0 0 auto;
+    margin-bottom: 16px;
+  }
+
+  .topbar h1 {
+    font-size: clamp(1.8rem, 2.4vw, 2.35rem);
+  }
+
+  .metric-grid,
+  .controls-panel {
+    flex: 0 0 auto;
+    margin-bottom: 12px;
+  }
+
+  .metric-card {
+    min-height: 108px;
+    padding: 14px;
+  }
+
+  .dashboard-content .split-layout {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .dashboard-content .panel {
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .analytics-chart-stack {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: grid;
+    grid-template-rows: minmax(260px, 1.35fr) minmax(190px, 1fr);
+    gap: 12px;
+  }
+
+  .analytics-content .chart-panel {
+    min-height: 0;
+    padding: 14px;
+  }
+
+  .analytics-content .chart-box,
+  .analytics-content .main-chart .chart-box {
+    height: 100%;
+    min-height: 0;
+  }
+
+  .analytics-content .subchart-grid {
+    min-height: 0;
+    gap: 12px;
+  }
+
+  .ledger-content {
+    display: grid;
+    grid-template-rows: auto minmax(145px, 0.75fr) minmax(260px, 1.4fr);
+    gap: 12px;
+  }
+
+  .ledger-content .controls-panel,
+  .ledger-content .panel {
+    margin-bottom: 0;
+  }
+
+  .ledger-positions-panel,
+  .ledger-trades-panel {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    padding: 14px;
+  }
+
+  .ledger-positions-panel .table-wrap,
+  .ledger-trades-panel .table-wrap {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+  }
+
+  .ledger-trades-panel .pagination {
+    flex: 0 0 auto;
+  }
+
+  th,
+  td {
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+}
+
 @media (max-width: 760px) {
+  html,
+  body,
+  #app {
+    height: auto;
+    overflow: auto;
+  }
+
   .app-frame {
     grid-template-columns: 1fr;
   }
@@ -484,6 +624,14 @@ select {
 
   .refresh-button {
     margin-top: 0;
+  }
+
+  .sidebar-footer {
+    margin-top: 0;
+  }
+
+  .social-links {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .content {
