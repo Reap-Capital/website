@@ -103,8 +103,7 @@ button:disabled {
 }
 
 .nav-tab svg,
-.refresh-button svg,
-.metric-icon svg {
+.refresh-button svg {
   width: 18px;
   height: 18px;
   flex: 0 0 auto;
@@ -200,17 +199,6 @@ button:disabled {
 .metric-card {
   min-height: 142px;
   padding: 18px;
-}
-
-.metric-icon {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  margin-bottom: 16px;
-  border-radius: 0;
-  background: #000000;
-  color: #ffffff;
 }
 
 .metric-card span {

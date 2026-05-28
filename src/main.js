@@ -267,10 +267,10 @@ function renderDashboard() {
   const { equity, metrics, positions, latestTrade } = data;
   return `
     <section class="metric-grid">
-      ${metricCard("Total Value", formatCurrency(equity?.total_equity), "wallet-cards")}
-      ${metricCard("Cash Balance", formatCurrency(equity?.cash_balance), "briefcase-business")}
-      ${metricCard("Invested Value", formatCurrency(equity?.invested_value), "activity")}
-      ${metricCard("Sharpe / Beta", `${formatNumber(metrics?.sharpe_ratio)} / ${formatNumber(metrics?.beta)}`, "bar-chart-3")}
+      ${metricCard("Total Value", formatCurrency(equity?.total_equity))}
+      ${metricCard("Cash Balance", formatCurrency(equity?.cash_balance))}
+      ${metricCard("Invested Value", formatCurrency(equity?.invested_value))}
+      ${metricCard("Sharpe / Beta", `${formatNumber(metrics?.sharpe_ratio)} / ${formatNumber(metrics?.beta)}`)}
     </section>
     <section class="split-layout">
       <div class="panel">
@@ -299,10 +299,9 @@ function renderDashboard() {
   `;
 }
 
-function metricCard(label, value, icon) {
+function metricCard(label, value) {
   return `
     <article class="metric-card">
-      <div class="metric-icon"><i data-lucide="${icon}"></i></div>
       <span>${label}</span>
       <strong>${value}</strong>
     </article>
