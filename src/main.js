@@ -4,6 +4,7 @@ import { createIcons, Activity, BarChart3, BriefcaseBusiness, ChevronLeft, Chevr
 import "./styles.css";
 
 Chart.register(LineController, LineElement, PointElement, LinearScale, TimeScale, CategoryScale, Tooltip, Legend, Filler);
+Chart.defaults.font.family = '"Times New Roman", Times, serif';
 
 let supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 let supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -29,7 +30,7 @@ const state = {
 let supabaseConfigured = false;
 let supabase = null;
 
-const palette = ["#0f766e", "#2563eb", "#c2410c", "#7c3aed", "#be123c", "#15803d", "#a16207", "#0891b2"];
+const palette = ["#000000", "#333333", "#666666", "#999999", "#111111", "#444444", "#777777", "#aaaaaa"];
 
 const icons = { Activity, BarChart3, BriefcaseBusiness, ChevronLeft, ChevronRight, Database, RefreshCw, WalletCards };
 
@@ -219,7 +220,7 @@ function shell(content) {
     <div class="app-frame">
       <aside class="sidebar">
         <div class="brand">
-          <div class="brand-mark">RC</div>
+          <div class="brand-mark" aria-label="Reap Capital gamma logo">Γ</div>
           <div>
             <strong>Reap Capital</strong>
             <span>Portfolio desk</span>
@@ -554,7 +555,7 @@ function makeLineChart(id, datasets, xMode) {
       animation: false,
       interaction: { mode: "nearest", intersect: false },
       plugins: {
-        legend: { labels: { color: "#334155", usePointStyle: true, boxWidth: 8 } },
+        legend: { labels: { color: "#000000", usePointStyle: true, boxWidth: 8 } },
         tooltip: {
           callbacks: {
             title: (items) => xMode === "time" ? formatDateTime(items[0]?.raw?.x) : items[0]?.raw?.x,
@@ -564,12 +565,12 @@ function makeLineChart(id, datasets, xMode) {
       scales: {
         x: {
           type: "category",
-          ticks: { color: "#64748b", maxTicksLimit: 8 },
+          ticks: { color: "#000000", maxTicksLimit: 8 },
           grid: { display: false },
         },
         y: {
-          ticks: { color: "#64748b", maxTicksLimit: 6 },
-          grid: { color: "#e2e8f0" },
+          ticks: { color: "#000000", maxTicksLimit: 6 },
+          grid: { color: "#000000" },
         },
       },
     },
