@@ -276,17 +276,25 @@ function shell(content) {
             </button>
           `).join("")}
         </nav>
-        <div class="sidebar-footer">
+        <div class="sidebar-actions">
           <div class="social-links" aria-label="External links">
-            <a href="https://github.com/cantsoar" target="_blank" rel="noreferrer">GitHub</a>
-            <a href="https://www.linkedin.com/in/aryan-malik-xd/" target="_blank" rel="noreferrer">LinkedIn</a>
+            <a href="https://github.com/cantsoar" target="_blank" rel="noreferrer" aria-label="GitHub">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 1.5C6.2 1.5 1.5 6.3 1.5 12.2c0 4.7 3 8.6 7.2 10 .5.1.7-.2.7-.5v-1.9c-2.9.6-3.5-1.2-3.5-1.2-.5-1.2-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 0 1.6 1.1 1.6 1.1.9 1.6 2.4 1.1 3 .9.1-.7.4-1.1.7-1.4-2.3-.3-4.8-1.2-4.8-5.2 0-1.1.4-2.1 1.1-2.8-.1-.3-.5-1.4.1-2.8 0 0 .9-.3 2.9 1.1.8-.2 1.7-.3 2.6-.3.9 0 1.8.1 2.6.3 2-1.4 2.9-1.1 2.9-1.1.6 1.4.2 2.5.1 2.8.7.8 1.1 1.7 1.1 2.8 0 4-2.4 4.9-4.8 5.2.4.3.7 1 .7 2v2.9c0 .3.2.6.7.5 4.2-1.4 7.2-5.3 7.2-10C22.5 6.3 17.8 1.5 12 1.5Z"/>
+              </svg>
+            </a>
+            <a href="https://www.linkedin.com/in/aryan-malik-xd/" target="_blank" rel="noreferrer" aria-label="LinkedIn">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4.8 8.7h3.4v10.8H4.8V8.7Zm1.7-5.4c1.1 0 1.9.8 1.9 1.8S7.6 7 6.5 7 4.6 6.2 4.6 5.1s.8-1.8 1.9-1.8Zm3.8 5.4h3.2v1.5h.1c.4-.8 1.5-1.8 3.2-1.8 3.4 0 4 2.2 4 5.1v6h-3.4v-5.3c0-1.3 0-2.9-1.8-2.9s-2.1 1.4-2.1 2.8v5.4h-3.4V8.7Z"/>
+              </svg>
+            </a>
           </div>
           <button class="refresh-button" type="button" data-action="refresh">
             <span>Refresh data</span>
           </button>
         </div>
       </aside>
-      <main class="content ${state.route}-content">
+      <main class="content">
         <header class="topbar">
           <div>
             <p class="eyebrow">Live from Supabase</p>
@@ -380,7 +388,7 @@ function renderAnalytics() {
         ${state.strategyMenuOpen ? `<div class="strategy-dropdown-panel">${strategyOptions}</div>` : ""}
       </div>
     </section>
-    <section class="chart-stack analytics-chart-stack">
+    <section class="chart-stack">
       ${chartPanel("Portfolio Equity", "equityChart", "main-chart")}
       <div class="subchart-grid">
         ${chartPanel("Daily Rolling Sharpe", "sharpeChart", "")}
@@ -423,14 +431,14 @@ function renderLedger() {
         </select>
       </label>
     </section>
-    <section class="panel ledger-positions-panel">
+    <section class="panel">
       <div class="panel-heading">
         <h2>Current Positions</h2>
         <span>${positions.length} rows</span>
       </div>
       ${positionsTable(positions, true)}
     </section>
-    <section class="panel ledger-trades-panel">
+    <section class="panel">
       <div class="panel-heading">
         <h2>Trades</h2>
         <span>${trades.length} rows</span>
