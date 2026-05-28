@@ -149,6 +149,9 @@ input {
 .icon-action svg {
   width: 21px;
   height: 21px;
+}
+
+.icon-action .brand-icon {
   fill: currentColor;
 }
 
