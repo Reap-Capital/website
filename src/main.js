@@ -17,6 +17,7 @@ const state = {
   route: "dashboard",
   loading: false,
   error: "",
+  darkMode: localStorage.getItem("reap-theme") === "dark",
   strategies: [],
   assets: [],
   dashboard: null,
@@ -35,6 +36,14 @@ let supabase = null;
 const palette = ["#7f0000", "#c1121f", "#e5383b", "#a4161a", "#d00000", "#9d0208", "#f48c06", "#6a040f"];
 
 const icons = { Activity, BarChart3, BriefcaseBusiness, ChevronLeft, ChevronRight, Database, RefreshCw, WalletCards };
+
+function applyTheme() {
+  document.documentElement.dataset.theme = state.darkMode ? "dark" : "light";
+}
+
+function themeInk() {
+  return getComputedStyle(document.documentElement).getPropertyValue("--black").trim() || "#000000";
+}
 
 async function loadRuntimeConfig() {
   try {
@@ -277,6 +286,10 @@ function shell(content) {
           `).join("")}
         </nav>
         <div class="sidebar-actions">
+          <button class="theme-toggle" type="button" data-action="theme-toggle" aria-pressed="${state.darkMode}">
+            <span>${state.darkMode ? "Light mode" : "Dark mode"}</span>
+            <span aria-hidden="true">${state.darkMode ? "W" : "B"}</span>
+          </button>
           <div class="social-links" aria-label="External links">
             <a href="https://github.com/cantsoar" target="_blank" rel="noreferrer" aria-label="GitHub">
               <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -540,6 +553,12 @@ function bindEvents() {
     button.addEventListener("click", () => setRoute(button.dataset.route));
   });
   document.querySelector("[data-action='refresh']")?.addEventListener("click", () => loadRouteData(true));
+  document.querySelector("[data-action='theme-toggle']")?.addEventListener("click", () => {
+    state.darkMode = !state.darkMode;
+    localStorage.setItem("reap-theme", state.darkMode ? "dark" : "light");
+    applyTheme();
+    render();
+  });
   document.querySelector("[data-strategy-menu-toggle]")?.addEventListener("click", () => {
     state.strategyMenuOpen = !state.strategyMenuOpen;
     render();
@@ -621,6 +640,8 @@ function seriesByStrategy(rows, xField, yField, labelFormatter) {
 function makeLineChart(id, series, config) {
   const canvas = document.querySelector(`#${id}`);
   if (!canvas) return null;
+  const ink = themeInk();
+  const grid = state.darkMode ? "#ffffff33" : "#00000022";
   return new Chart(canvas, {
     type: "line",
     data: series,
@@ -632,7 +653,7 @@ function makeLineChart(id, series, config) {
       plugins: {
         legend: {
           position: "bottom",
-          labels: { color: "#000000", usePointStyle: true, boxWidth: 10, padding: 14 },
+          labels: { color: ink, usePointStyle: true, boxWidth: 10, padding: 14 },
         },
         tooltip: {
           callbacks: {
@@ -644,18 +665,18 @@ function makeLineChart(id, series, config) {
       scales: {
         x: {
           type: "category",
-          title: { display: true, text: config.xTitle, color: "#000000", font: { weight: "bold" } },
-          ticks: { color: "#000000", maxTicksLimit: 8, maxRotation: 0, autoSkip: true },
+          title: { display: true, text: config.xTitle, color: ink, font: { weight: "bold" } },
+          ticks: { color: ink, maxTicksLimit: 8, maxRotation: 0, autoSkip: true },
           grid: { display: false },
         },
         y: {
-          title: { display: true, text: config.yTitle, color: "#000000", font: { weight: "bold" } },
+          title: { display: true, text: config.yTitle, color: ink, font: { weight: "bold" } },
           ticks: {
-            color: "#000000",
+            color: ink,
             maxTicksLimit: 6,
             callback: (value) => formatChartValue(value, config.yFormat),
           },
-          grid: { color: "#d8d8d8" },
+          grid: { color: grid },
         },
       },
     },
@@ -677,6 +698,7 @@ window.addEventListener("hashchange", () => {
 
 async function bootstrap() {
   await initSupabase();
+  applyTheme();
   state.route = routeFromHash();
   render();
   await loadRouteData();
