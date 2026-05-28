@@ -212,9 +212,9 @@ function combinePositions(positions) {
 
 function shell(content) {
   const nav = [
-    ["dashboard", "Overview", "activity"],
-    ["analytics", "Analytics", "bar-chart-3"],
-    ["ledger", "Ledger", "database"],
+    ["dashboard", "Overview"],
+    ["analytics", "Analytics"],
+    ["ledger", "Ledger"],
   ];
   return `
     <div class="app-frame">
@@ -227,15 +227,13 @@ function shell(content) {
           </div>
         </div>
         <nav class="nav-tabs" aria-label="Dashboard pages">
-          ${nav.map(([route, label, icon]) => `
+          ${nav.map(([route, label]) => `
             <button class="nav-tab ${state.route === route ? "active" : ""}" data-route="${route}" type="button">
-              <i data-lucide="${icon}"></i>
               <span>${label}</span>
             </button>
           `).join("")}
         </nav>
         <button class="refresh-button" type="button" data-action="refresh">
-          <i data-lucide="refresh-cw"></i>
           <span>Refresh data</span>
         </button>
       </aside>

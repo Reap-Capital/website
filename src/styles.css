@@ -91,7 +91,6 @@ button:disabled {
 .refresh-button {
   display: flex;
   align-items: center;
-  gap: 10px;
   width: 100%;
   min-height: 42px;
   padding: 10px 12px;
@@ -100,13 +99,6 @@ button:disabled {
   background: transparent;
   color: #ffffff;
   text-align: left;
-}
-
-.nav-tab svg,
-.refresh-button svg {
-  width: 18px;
-  height: 18px;
-  flex: 0 0 auto;
 }
 
 .nav-tab.active,
@@ -136,7 +128,7 @@ button:disabled {
 
 .topbar h1 {
   margin: 2px 0 0;
-  font-size: clamp(1.7rem, 2.5vw, 2.45rem);
+  font-size: clamp(1.9rem, 2.8vw, 2.75rem);
   letter-spacing: 0;
 }
 
@@ -236,7 +228,7 @@ button:disabled {
 .panel-heading h2,
 .controls-panel h2 {
   margin: 0;
-  font-size: 1rem;
+  font-size: 1.12rem;
   letter-spacing: 0;
 }
 
@@ -486,6 +478,6 @@ select {
   }
 
   .topbar h1 {
-    font-size: 1.55rem;
+    font-size: 1.75rem;
   }
 }
