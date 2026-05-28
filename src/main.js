@@ -286,25 +286,34 @@ function shell(content) {
           `).join("")}
         </nav>
         <div class="sidebar-actions">
-          <button class="theme-toggle" type="button" data-action="theme-toggle" aria-pressed="${state.darkMode}">
-            <span>${state.darkMode ? "Light mode" : "Dark mode"}</span>
-            <span aria-hidden="true">${state.darkMode ? "W" : "B"}</span>
-          </button>
-          <div class="social-links" aria-label="External links">
-            <a href="https://github.com/cantsoar" target="_blank" rel="noreferrer" aria-label="GitHub">
+          <div class="icon-actions" aria-label="Quick actions">
+            <button class="icon-action" type="button" data-action="theme-toggle" aria-label="${state.darkMode ? "Switch to light mode" : "Switch to dark mode"}" aria-pressed="${state.darkMode}">
+              ${state.darkMode ? `
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 4.2a1 1 0 0 1 1-1h.1a1 1 0 0 1 0 2H13v.1a1 1 0 0 1-2 0v-.1h-.1a1 1 0 0 1 0-2h.1a1 1 0 0 1 1 1Zm0 4.1a3.7 3.7 0 1 0 0 7.4 3.7 3.7 0 0 0 0-7.4Zm0-2a5.7 5.7 0 1 1 0 11.4 5.7 5.7 0 0 1 0-11.4ZM4.9 6.3a1 1 0 0 1 1.4-1.4l.1.1a1 1 0 0 1-1.4 1.4l-.1-.1Zm12.7 12.7a1 1 0 0 1 1.4-1.4l.1.1a1 1 0 0 1-1.4 1.4l-.1-.1ZM3.2 12a1 1 0 0 1 1-1h.2a1 1 0 1 1 0 2h-.2a1 1 0 0 1-1-1Zm16.4 0a1 1 0 0 1 1-1h.2a1 1 0 1 1 0 2h-.2a1 1 0 0 1-1-1ZM4.9 17.7l.1-.1A1 1 0 1 1 6.4 19l-.1.1a1 1 0 0 1-1.4-1.4ZM17.6 5l.1-.1a1 1 0 1 1 1.4 1.4l-.1.1A1 1 0 0 1 17.6 5ZM12 18.7a1 1 0 0 1 1 1v.1a1 1 0 1 1-2 0v-.1a1 1 0 0 1 1-1Z"/>
+                </svg>
+              ` : `
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M20.4 14.7a1 1 0 0 1 .2 1.1A9 9 0 0 1 8.2 20.6 9 9 0 0 1 3.4 8.2a9 9 0 0 1 4.8-4.8 1 1 0 0 1 1.3 1.3 7 7 0 0 0 9.8 9.8 1 1 0 0 1 1.1.2ZM8 6.2a7 7 0 1 0 9.8 9.8A9 9 0 0 1 8 6.2Z"/>
+                </svg>
+              `}
+            </button>
+            <a class="icon-action" href="https://github.com/cantsoar" target="_blank" rel="noreferrer" aria-label="GitHub">
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M12 1.5C6.2 1.5 1.5 6.3 1.5 12.2c0 4.7 3 8.6 7.2 10 .5.1.7-.2.7-.5v-1.9c-2.9.6-3.5-1.2-3.5-1.2-.5-1.2-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 0 1.6 1.1 1.6 1.1.9 1.6 2.4 1.1 3 .9.1-.7.4-1.1.7-1.4-2.3-.3-4.8-1.2-4.8-5.2 0-1.1.4-2.1 1.1-2.8-.1-.3-.5-1.4.1-2.8 0 0 .9-.3 2.9 1.1.8-.2 1.7-.3 2.6-.3.9 0 1.8.1 2.6.3 2-1.4 2.9-1.1 2.9-1.1.6 1.4.2 2.5.1 2.8.7.8 1.1 1.7 1.1 2.8 0 4-2.4 4.9-4.8 5.2.4.3.7 1 .7 2v2.9c0 .3.2.6.7.5 4.2-1.4 7.2-5.3 7.2-10C22.5 6.3 17.8 1.5 12 1.5Z"/>
               </svg>
             </a>
-            <a href="https://www.linkedin.com/in/aryan-malik-xd/" target="_blank" rel="noreferrer" aria-label="LinkedIn">
+            <a class="icon-action" href="https://www.linkedin.com/in/aryan-malik-xd/" target="_blank" rel="noreferrer" aria-label="LinkedIn">
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M4.8 8.7h3.4v10.8H4.8V8.7Zm1.7-5.4c1.1 0 1.9.8 1.9 1.8S7.6 7 6.5 7 4.6 6.2 4.6 5.1s.8-1.8 1.9-1.8Zm3.8 5.4h3.2v1.5h.1c.4-.8 1.5-1.8 3.2-1.8 3.4 0 4 2.2 4 5.1v6h-3.4v-5.3c0-1.3 0-2.9-1.8-2.9s-2.1 1.4-2.1 2.8v5.4h-3.4V8.7Z"/>
               </svg>
             </a>
+            <button class="icon-action" type="button" data-action="refresh" aria-label="Refresh data">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M19.7 12.8a1 1 0 0 1 1.2.8 8.8 8.8 0 0 1-15 7.3A8.8 8.8 0 0 1 3.3 14a1 1 0 1 1 2 .2 6.8 6.8 0 0 0 11.5 5.2 6.8 6.8 0 0 0 2.1-5.4 1 1 0 0 1 .8-1.2ZM4.1 3a1 1 0 0 1 1 1v2.1a8.8 8.8 0 0 1 15.6 3.8 1 1 0 1 1-2 .2A6.8 6.8 0 0 0 6.6 7H9a1 1 0 1 1 0 2H4.1a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z"/>
+              </svg>
+            </button>
           </div>
-          <button class="refresh-button" type="button" data-action="refresh">
-            <span>Refresh data</span>
-          </button>
         </div>
       </aside>
       <main class="content">
