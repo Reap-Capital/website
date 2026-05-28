@@ -355,7 +355,7 @@ function renderAnalytics() {
   const selectedCount = state.selectedStrategies.size;
   const strategyOptions = data.activeIds.map((id) => `
     <label class="strategy-toggle">
-      <input type="checkbox" data-strategy-toggle="${id}" ${state.selectedStrategies.has(id) ? "checked" : ""} ${id === GLOBAL_STRATEGY_ID ? "disabled" : ""} />
+      <input type="checkbox" data-strategy-toggle="${id}" ${state.selectedStrategies.has(id) ? "checked" : ""} />
       <span>${strategyName(id)}</span>
     </label>
   `).join("");
@@ -561,10 +561,10 @@ function destroyCharts() {
 function renderCharts() {
   if (!state.analytics) return;
   destroyCharts();
-  state.charts.equity = makeLineChart("equityChart", buildEquitySeries(), "Timestamp");
-  state.charts.sharpe = makeLineChart("sharpeChart", buildMetricSeries("sharpe_ratio"), "Date");
-  state.charts.beta = makeLineChart("betaChart", buildMetricSeries("beta"), "Date");
-  state.charts.drawdown = makeLineChart("drawdownChart", buildMetricSeries("max_drawdown"), "Date");
+  state.charts.equity = makeLineChart("equityChart", buildEquitySeries(), { xTitle: "Timestamp", yTitle: "Total equity", yFormat: "currency" });
+  state.charts.sharpe = makeLineChart("sharpeChart", buildMetricSeries("sharpe_ratio"), { xTitle: "Date", yTitle: "Sharpe ratio", yFormat: "number" });
+  state.charts.beta = makeLineChart("betaChart", buildMetricSeries("beta"), { xTitle: "Date", yTitle: "Beta", yFormat: "number" });
+  state.charts.drawdown = makeLineChart("drawdownChart", buildMetricSeries("max_drawdown"), { xTitle: "Date", yTitle: "Max drawdown", yFormat: "percent" });
 }
 
 function buildEquitySeries() {
@@ -581,6 +581,7 @@ function seriesByStrategy(rows, xField, yField, labelFormatter) {
   const labels = xValues.map(labelFormatter);
   const datasets = Array.from(state.selectedStrategies).map((strategyId, index) => {
     const color = palette[index % palette.length];
+    const sparseSeries = xValues.length <= 40;
     const values = new Map(
       rows
         .filter((row) => Number(row.strategy_id) === Number(strategyId))
@@ -591,16 +592,19 @@ function seriesByStrategy(rows, xField, yField, labelFormatter) {
       data: xValues.map((xValue) => values.get(xValue) ?? null),
       borderColor: color,
       backgroundColor: `${color}22`,
-      borderWidth: 2,
-      pointRadius: 0,
-      tension: 0.25,
+      borderDash: index % 3 === 1 ? [8, 4] : index % 3 === 2 ? [3, 3] : [],
+      borderWidth: 3,
+      pointRadius: sparseSeries ? 3 : 0,
+      pointHoverRadius: 5,
+      tension: 0.2,
       fill: false,
+      spanGaps: true,
     };
   });
   return { labels, datasets };
 }
 
-function makeLineChart(id, series, xTitle) {
+function makeLineChart(id, series, config) {
   const canvas = document.querySelector(`#${id}`);
   if (!canvas) return null;
   return new Chart(canvas, {
@@ -612,23 +616,43 @@ function makeLineChart(id, series, xTitle) {
       animation: false,
       interaction: { mode: "nearest", intersect: false },
       plugins: {
-        legend: { labels: { color: "#000000", usePointStyle: true, boxWidth: 8 } },
-        tooltip: { callbacks: { title: (items) => items[0]?.label ?? "" } },
+        legend: {
+          position: "bottom",
+          labels: { color: "#000000", usePointStyle: true, boxWidth: 10, padding: 14 },
+        },
+        tooltip: {
+          callbacks: {
+            title: (items) => items[0]?.label ?? "",
+            label: (item) => `${item.dataset.label}: ${formatChartValue(item.parsed.y, config.yFormat)}`,
+          },
+        },
       },
       scales: {
         x: {
           type: "category",
-          title: { display: true, text: xTitle, color: "#000000", font: { weight: "bold" } },
+          title: { display: true, text: config.xTitle, color: "#000000", font: { weight: "bold" } },
           ticks: { color: "#000000", maxTicksLimit: 8, maxRotation: 0, autoSkip: true },
           grid: { display: false },
         },
         y: {
-          ticks: { color: "#000000", maxTicksLimit: 6 },
-          grid: { color: "#000000" },
+          title: { display: true, text: config.yTitle, color: "#000000", font: { weight: "bold" } },
+          ticks: {
+            color: "#000000",
+            maxTicksLimit: 6,
+            callback: (value) => formatChartValue(value, config.yFormat),
+          },
+          grid: { color: "#d8d8d8" },
         },
       },
     },
   });
+}
+
+function formatChartValue(value, mode) {
+  if (!Number.isFinite(Number(value))) return "-";
+  if (mode === "currency") return formatCurrency(value);
+  if (mode === "percent") return `${formatNumber(Number(value) * 100, 1)}%`;
+  return formatNumber(value, 2);
 }
 
 window.addEventListener("hashchange", () => {
