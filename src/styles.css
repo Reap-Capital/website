@@ -526,6 +526,9 @@ select {
 
   .nav-tab {
     justify-content: center;
+    min-height: 44px;
+    padding: 10px 6px;
+    text-align: center;
   }
 
   .sidebar-actions {
@@ -569,7 +572,9 @@ select {
 
 @media (max-width: 520px) {
   .nav-tab span {
-    display: none;
+    display: block;
+    font-size: 0.92rem;
+    line-height: 1.1;
   }
 
   .metric-card {
