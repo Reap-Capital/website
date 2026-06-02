@@ -116,9 +116,16 @@ function assetInfo(assetId) {
   return state.assets.find((asset) => Number(asset.id) === Number(assetId));
 }
 
-function assetDisplay(assetId) {
+function assetDisplay(assetId, fallbackSymbol) {
   const asset = assetInfo(assetId);
-  if (!asset) return String(assetId ?? "-");
+  if (!asset) {
+    if (fallbackSymbol) return `
+      <span class="asset-cell">
+        <strong>${fallbackSymbol}</strong>
+      </span>
+    `;
+    return String(assetId ?? "-");
+  }
   const detail = [asset.name, asset.asset_class].filter(Boolean).join(" | ");
   return `
     <span class="asset-cell">
@@ -175,16 +182,35 @@ async function loadAssets() {
 
 async function loadDashboard() {
   if (state.dashboard || !supabase) return;
-  const [equity, metrics, positions, latestTrade] = await Promise.all([
+  const [equity, metrics, brokerPositions, latestTrade] = await Promise.all([
     queryOrThrow(supabase.from("portfolio_equity").select("time,strategy_id,invested_value,cash_balance,total_equity").eq("strategy_id", GLOBAL_STRATEGY_ID).order("time", { ascending: false }).limit(1)),
     queryOrThrow(supabase.from("daily_metrics").select("date,strategy_id,sharpe_ratio,beta,max_drawdown").eq("strategy_id", GLOBAL_STRATEGY_ID).order("date", { ascending: false }).limit(1)),
-    queryOrThrow(supabase.from("current_positions").select("strategy_id,asset_id,current_qty,avg_entry_price,unrealized_pnl").order("asset_id", { ascending: true })),
+    queryOrThrow(supabase.from("broker_position_snapshots").select("symbol,quantity,avg_cost,captured_at").order("captured_at", { ascending: false }).limit(200)),
     queryOrThrow(supabase.from("trades").select("time,strategy_id,asset_id,action,price,qty").order("time", { ascending: false }).limit(1)),
   ]);
+  
+  const uniqueSymbols = new Set();
+  const activeBrokerPositions = [];
+  for (const row of brokerPositions) {
+    if (!uniqueSymbols.has(row.symbol)) {
+      uniqueSymbols.add(row.symbol);
+      if (row.quantity !== 0 && row.symbol !== "FLAT") {
+        const asset = state.assets.find(a => a.ticker === row.symbol);
+        activeBrokerPositions.push({
+          asset_id: asset ? asset.id : null,
+          fallback_symbol: row.symbol,
+          current_qty: row.quantity,
+          avg_entry_price: row.avg_cost,
+          unrealized_pnl: 0,
+        });
+      }
+    }
+  }
+
   state.dashboard = {
     equity: equity[0] ?? null,
     metrics: metrics[0] ?? null,
-    positions: combinePositions(positions),
+    positions: activeBrokerPositions,
     latestTrade: latestTrade[0] ?? null,
   };
 }
@@ -491,7 +517,7 @@ function positionsTable(rows, includeStrategy) {
           ${rows.map((row) => `
             <tr>
               ${includeStrategy ? `<td>${strategyName(row.strategy_id)}</td>` : ""}
-              <td>${assetDisplay(row.asset_id)}</td>
+              <td>${assetDisplay(row.asset_id, row.fallback_symbol)}</td>
               <td class="numeric">${formatQty(row.current_qty)}</td>
               <td class="numeric">${formatCurrency(row.avg_entry_price)}</td>
               <td class="numeric ${Number(row.unrealized_pnl) >= 0 ? "positive" : "negative"}">${formatCurrency(row.unrealized_pnl)}</td>
