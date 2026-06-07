@@ -8,7 +8,6 @@ Chart.defaults.font.family = '"Times New Roman", Times, serif';
 
 let supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 let supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-const GLOBAL_STRATEGY_ID = 0;
 const TRADE_PAGE_SIZE = 40;
 const SUPABASE_BATCH_SIZE = 1000;
 
@@ -18,14 +17,9 @@ const state = {
   loading: false,
   error: "",
   darkMode: localStorage.getItem("reap-theme") === "dark",
-  strategies: [],
-  assets: [],
   dashboard: null,
-  analytics: null,
+  performance: null,
   ledger: null,
-  selectedStrategies: new Set([GLOBAL_STRATEGY_ID]),
-  strategyMenuOpen: false,
-  ledgerFilter: "all",
   tradePage: 1,
   charts: {},
 };
@@ -33,7 +27,7 @@ const state = {
 let supabaseConfigured = false;
 let supabase = null;
 
-const palette = ["#7f0000", "#c1121f", "#e5383b", "#a4161a", "#d00000", "#9d0208", "#f48c06", "#6a040f"];
+const primaryColor = "#c1121f";
 
 const icons = { Activity, BarChart3, BriefcaseBusiness, ChevronLeft, ChevronRight, Database, Moon, RotateCw, Sun, WalletCards };
 
@@ -88,16 +82,6 @@ function formatDateTime(value) {
   }).format(new Date(value));
 }
 
-function formatAxisDateTime(value) {
-  if (!value) return "-";
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value));
-}
-
 function formatAxisDate(value) {
   if (!value) return "-";
   return new Intl.DateTimeFormat("en-US", {
@@ -106,31 +90,9 @@ function formatAxisDate(value) {
   }).format(new Date(`${value}T00:00:00`));
 }
 
-function strategyName(id) {
-  const strategy = state.strategies.find((item) => Number(item.id) === Number(id));
-  if (strategy) return Number(id) === GLOBAL_STRATEGY_ID ? "Global" : strategy.name;
-  return Number(id) === GLOBAL_STRATEGY_ID ? "Global Portfolio" : `Strategy ${id}`;
-}
-
-function assetInfo(assetId) {
-  return state.assets.find((asset) => Number(asset.id) === Number(assetId));
-}
-
-function assetDisplay(assetId) {
-  const asset = assetInfo(assetId);
-  if (!asset) return String(assetId ?? "-");
-  const detail = [asset.name, asset.asset_class].filter(Boolean).join(" | ");
-  return `
-    <span class="asset-cell">
-      <strong>${asset.ticker}</strong>
-      ${detail ? `<small>${detail}</small>` : ""}
-    </span>
-  `;
-}
-
 function routeFromHash() {
   const route = window.location.hash.replace("#", "");
-  return ["dashboard", "analytics", "ledger"].includes(route) ? route : "dashboard";
+  return ["dashboard", "performance", "ledger"].includes(route) ? route : "dashboard";
 }
 
 function setRoute(route) {
@@ -149,7 +111,6 @@ async function queryOrThrow(builder) {
 async function queryAll(builderFactory) {
   const rows = [];
   let from = 0;
-
   while (true) {
     const to = from + SUPABASE_BATCH_SIZE - 1;
     const batch = await queryOrThrow(builderFactory().range(from, to));
@@ -157,57 +118,35 @@ async function queryAll(builderFactory) {
     if (batch.length < SUPABASE_BATCH_SIZE) break;
     from += SUPABASE_BATCH_SIZE;
   }
-
   return rows;
-}
-
-async function loadStrategies() {
-  if (!supabase || state.strategies.length) return;
-  const strategies = await queryOrThrow(supabase.from("strategies").select("id,name").order("id", { ascending: true }));
-  const hasGlobal = strategies.some((item) => Number(item.id) === GLOBAL_STRATEGY_ID);
-  state.strategies = hasGlobal ? strategies : [{ id: GLOBAL_STRATEGY_ID, name: "Global Portfolio" }, ...strategies];
-}
-
-async function loadAssets() {
-  if (!supabase || state.assets.length) return;
-  state.assets = await queryAll(() => supabase.from("assets").select("id,ticker,name,asset_class").order("ticker", { ascending: true }));
 }
 
 async function loadDashboard() {
   if (state.dashboard || !supabase) return;
-  const [equity, metrics, positions, latestTrade] = await Promise.all([
-    queryOrThrow(supabase.from("portfolio_equity").select("time,strategy_id,invested_value,cash_balance,total_equity").eq("strategy_id", GLOBAL_STRATEGY_ID).order("time", { ascending: false }).limit(1)),
-    queryOrThrow(supabase.from("daily_metrics").select("date,strategy_id,sharpe_ratio,beta,max_drawdown").eq("strategy_id", GLOBAL_STRATEGY_ID).order("date", { ascending: false }).limit(1)),
-    queryOrThrow(supabase.from("current_positions").select("strategy_id,asset_id,current_qty,avg_entry_price,unrealized_pnl").order("asset_id", { ascending: true })),
-    queryOrThrow(supabase.from("trades").select("time,strategy_id,asset_id,action,price,qty").order("time", { ascending: false }).limit(1)),
+  const [holdings, equityRows, latestFills] = await Promise.all([
+    queryOrThrow(supabase.from("holdings").select("symbol,quantity,market_value,unrealized_pnl").order("symbol", { ascending: true })),
+    queryOrThrow(supabase.from("portfolio_equity").select("date,total_equity,gross_notional,available_cash").order("date", { ascending: false }).limit(1)),
+    queryOrThrow(supabase.from("orders").select("symbol,side,quantity,fill_price,filled_at").not("filled_at", "is", null).order("filled_at", { ascending: false }).limit(5)),
   ]);
-  state.dashboard = {
-    equity: equity[0] ?? null,
-    metrics: metrics[0] ?? null,
-    positions: combinePositions(positions),
-    latestTrade: latestTrade[0] ?? null,
-  };
+  state.dashboard = { equity: equityRows[0] ?? null, holdings, latestFills };
 }
 
-async function loadAnalytics() {
-  if (state.analytics || !supabase) return;
-  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-  const sinceDate = since.slice(0, 10);
-  const [equity, metrics] = await Promise.all([
-    queryAll(() => supabase.from("portfolio_equity").select("time,strategy_id,invested_value,cash_balance,total_equity").gte("time", since).order("time", { ascending: true })),
-    queryAll(() => supabase.from("daily_metrics").select("date,strategy_id,sharpe_ratio,beta,max_drawdown").gte("date", sinceDate).order("date", { ascending: true })),
+async function loadPerformance() {
+  if (state.performance || !supabase) return;
+  const [equityRows, metricsRows] = await Promise.all([
+    queryOrThrow(supabase.from("portfolio_equity").select("date,total_equity").order("date", { ascending: false }).limit(30)),
+    queryOrThrow(supabase.from("portfolio_metrics").select("date,sharpe_ratio,max_drawdown").order("date", { ascending: false }).limit(30)),
   ]);
-  const activeIds = Array.from(new Set([...equity.map((row) => Number(row.strategy_id)), ...metrics.map((row) => Number(row.strategy_id)), GLOBAL_STRATEGY_ID])).sort((a, b) => a - b);
-  state.analytics = { equity, metrics, activeIds };
+  state.performance = { equity: equityRows.reverse(), metrics: metricsRows.reverse() };
 }
 
 async function loadLedger() {
   if (state.ledger || !supabase) return;
-  const [positions, trades] = await Promise.all([
-    queryAll(() => supabase.from("current_positions").select("strategy_id,asset_id,current_qty,avg_entry_price,unrealized_pnl").order("strategy_id", { ascending: true })),
-    queryAll(() => supabase.from("trades").select("time,strategy_id,asset_id,action,price,qty").order("time", { ascending: false })),
+  const [holdings, orders] = await Promise.all([
+    queryOrThrow(supabase.from("holdings").select("symbol,quantity,avg_cost_basis,market_value,unrealized_pnl").order("symbol", { ascending: true })),
+    queryAll(() => supabase.from("orders").select("intent_id,symbol,side,quantity,order_type,fill_price,fill_quantity,filled_at,submitted_at,status").order("filled_at", { ascending: false, nullsFirst: false })),
   ]);
-  state.ledger = { positions, trades };
+  state.ledger = { holdings, orders };
 }
 
 async function loadRouteData(force = false) {
@@ -216,56 +155,30 @@ async function loadRouteData(force = false) {
     render();
     return;
   }
-
   if (force) {
     state.dashboard = null;
-    state.analytics = null;
+    state.performance = null;
     state.ledger = null;
-    state.assets = [];
   }
-
   state.loading = true;
   state.error = "";
   render();
   try {
-    await loadStrategies();
-    await loadAssets();
     if (state.route === "dashboard") await loadDashboard();
-    if (state.route === "analytics") await loadAnalytics();
+    if (state.route === "performance") await loadPerformance();
     if (state.route === "ledger") await loadLedger();
   } catch (error) {
-    state.error = error.message ?? "Unable to fetch dashboard data.";
+    state.error = error.message ?? "Unable to fetch data.";
   } finally {
     state.loading = false;
     render();
   }
 }
 
-function combinePositions(positions) {
-  const grouped = new Map();
-  for (const row of positions) {
-    const key = row.asset_id;
-    const existing = grouped.get(key) ?? { asset_id: key, current_qty: 0, avg_entry_numerator: 0, avg_entry_denominator: 0, unrealized_pnl: 0 };
-    const qty = Number(row.current_qty) || 0;
-    const avg = Number(row.avg_entry_price) || 0;
-    existing.current_qty += qty;
-    existing.avg_entry_numerator += Math.abs(qty) * avg;
-    existing.avg_entry_denominator += Math.abs(qty);
-    existing.unrealized_pnl += Number(row.unrealized_pnl) || 0;
-    grouped.set(key, existing);
-  }
-  return Array.from(grouped.values()).map((row) => ({
-    asset_id: row.asset_id,
-    current_qty: row.current_qty,
-    avg_entry_price: row.avg_entry_denominator ? row.avg_entry_numerator / row.avg_entry_denominator : 0,
-    unrealized_pnl: row.unrealized_pnl,
-  }));
-}
-
 function shell(content) {
   const nav = [
     ["dashboard", "Overview"],
-    ["analytics", "Analytics"],
+    ["performance", "Performance"],
     ["ledger", "Ledger"],
   ];
   return `
@@ -323,7 +236,7 @@ function shell(content) {
 }
 
 function pageTitle() {
-  if (state.route === "analytics") return "Analytics & Graphs";
+  if (state.route === "performance") return "Performance";
   if (state.route === "ledger") return "Ledger & Holdings";
   return "Main Dashboard";
 }
@@ -331,36 +244,28 @@ function pageTitle() {
 function renderDashboard() {
   const data = state.dashboard;
   if (!data) return emptyPanel("Waiting for dashboard data");
-  const { equity, metrics, positions, latestTrade } = data;
+  const { equity, holdings, latestFills } = data;
   return `
     <section class="metric-grid">
-      ${metricCard("Total Value", formatCurrency(equity?.total_equity))}
-      ${metricCard("Cash Balance", formatCurrency(equity?.cash_balance))}
-      ${metricCard("Invested Value", formatCurrency(equity?.invested_value))}
-      ${metricCard("Sharpe / Beta", `${formatNumber(metrics?.sharpe_ratio)} / ${formatNumber(metrics?.beta)}`)}
+      ${metricCard("Total Equity", formatCurrency(equity?.total_equity))}
+      ${metricCard("Gross Notional", formatCurrency(equity?.gross_notional))}
+      ${metricCard("Available Cash", formatCurrency(equity?.available_cash))}
+      ${metricCard("Open Positions", String(holdings.length))}
     </section>
     <section class="split-layout">
       <div class="panel">
         <div class="panel-heading">
-          <h2>Combined Holdings</h2>
-          <span>${positions.length} assets</span>
+          <h2>Holdings</h2>
+          <span>${holdings.length} position${holdings.length === 1 ? "" : "s"}</span>
         </div>
-        ${positionsTable(positions, false)}
+        ${holdingsTable(holdings)}
       </div>
       <div class="panel">
         <div class="panel-heading">
-          <h2>Latest Trade</h2>
-          <span>${formatDateTime(latestTrade?.time)}</span>
+          <h2>Latest Fills</h2>
+          <span>${latestFills.length ? formatDateTime(latestFills[0].filled_at) : "—"}</span>
         </div>
-        ${latestTrade ? `
-          <dl class="trade-summary">
-            <div><dt>Asset</dt><dd>${assetDisplay(latestTrade.asset_id)}</dd></div>
-            <div><dt>Action</dt><dd>${latestTrade.action}</dd></div>
-            <div><dt>Strategy</dt><dd>${strategyName(latestTrade.strategy_id)}</dd></div>
-            <div><dt>Quantity</dt><dd>${formatQty(latestTrade.qty)}</dd></div>
-            <div><dt>Price</dt><dd>${formatCurrency(latestTrade.price)}</dd></div>
-          </dl>
-        ` : emptyPanel("No trades found")}
+        ${latestFillsTable(latestFills)}
       </div>
     </section>
   `;
@@ -375,36 +280,83 @@ function metricCard(label, value) {
   `;
 }
 
-function renderAnalytics() {
-  const data = state.analytics;
-  if (!data) return emptyPanel("Waiting for analytics data");
-  const selectedCount = state.selectedStrategies.size;
-  const strategyOptions = data.activeIds.map((id) => `
-    <label class="strategy-toggle">
-      <input type="checkbox" data-strategy-toggle="${id}" ${state.selectedStrategies.has(id) ? "checked" : ""} />
-      <span>${strategyName(id)}</span>
-    </label>
-  `).join("");
-
+function holdingsTable(rows, showCostBasis = false) {
+  if (!rows.length) return emptyPanel("No open positions");
   return `
-    <section class="panel controls-panel">
-      <div>
-        <h2>Strategy visibility</h2>
-        <p>All 30-day data is loaded once; toggles only hide or show cached series.</p>
-      </div>
-      <div class="strategy-dropdown">
-        <button class="strategy-dropdown-button" type="button" data-strategy-menu-toggle aria-expanded="${state.strategyMenuOpen}">
-          ${selectedCount === 1 ? "Global only" : `${selectedCount} strategies`}
-          <span aria-hidden="true">v</span>
-        </button>
-        ${state.strategyMenuOpen ? `<div class="strategy-dropdown-panel">${strategyOptions}</div>` : ""}
-      </div>
-    </section>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Symbol</th>
+            <th class="numeric">Qty</th>
+            ${showCostBasis ? '<th class="numeric">Avg Cost Basis</th>' : ""}
+            <th class="numeric">Market Value</th>
+            <th class="numeric">Unrealized PnL</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map((row) => {
+            const qty = Number(row.quantity);
+            const isShort = qty < 0;
+            return `
+              <tr>
+                <td>
+                  <span class="symbol-cell">
+                    <strong>${row.symbol}</strong>
+                    ${isShort ? '<span class="side-badge short">SHORT</span>' : ""}
+                  </span>
+                </td>
+                <td class="numeric">${formatQty(qty)}</td>
+                ${showCostBasis ? `<td class="numeric">${formatCurrency(row.avg_cost_basis)}</td>` : ""}
+                <td class="numeric">${formatCurrency(row.market_value)}</td>
+                <td class="numeric ${Number(row.unrealized_pnl) >= 0 ? "positive" : "negative"}">${formatCurrency(row.unrealized_pnl)}</td>
+              </tr>
+            `;
+          }).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function latestFillsTable(rows) {
+  if (!rows.length) return emptyPanel("No recent fills");
+  return `
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Symbol</th>
+            <th>Side</th>
+            <th class="numeric">Qty</th>
+            <th class="numeric">Fill Price</th>
+            <th>Filled At</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map((row) => `
+            <tr>
+              <td><strong>${row.symbol}</strong></td>
+              <td><span class="side-badge ${(row.side ?? "").toLowerCase()}">${row.side}</span></td>
+              <td class="numeric">${formatQty(row.quantity)}</td>
+              <td class="numeric">${formatCurrency(row.fill_price)}</td>
+              <td>${formatDateTime(row.filled_at)}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderPerformance() {
+  const data = state.performance;
+  if (!data) return emptyPanel("Waiting for performance data");
+  return `
     <section class="chart-stack">
       ${chartPanel("Portfolio Equity", "equityChart", "main-chart")}
       <div class="subchart-grid">
-        ${chartPanel("Daily Rolling Sharpe", "sharpeChart", "")}
-        ${chartPanel("Beta", "betaChart", "")}
+        ${chartPanel("Rolling Sharpe", "sharpeChart", "")}
         ${chartPanel("Drawdown", "drawdownChart", "")}
       </div>
     </section>
@@ -423,42 +375,26 @@ function chartPanel(title, id, className) {
 function renderLedger() {
   const data = state.ledger;
   if (!data) return emptyPanel("Waiting for ledger data");
-  const positions = filterByStrategy(data.positions);
-  const trades = filterByStrategy(data.trades);
-  const pages = Math.max(1, Math.ceil(trades.length / TRADE_PAGE_SIZE));
+  const { holdings, orders } = data;
+  const pages = Math.max(1, Math.ceil(orders.length / TRADE_PAGE_SIZE));
   state.tradePage = Math.min(state.tradePage, pages);
   const pageStart = (state.tradePage - 1) * TRADE_PAGE_SIZE;
-  const pageTrades = trades.slice(pageStart, pageStart + TRADE_PAGE_SIZE);
+  const pageOrders = orders.slice(pageStart, pageStart + TRADE_PAGE_SIZE);
   return `
-    <section class="panel controls-panel">
-      <div>
-        <h2>Raw tables</h2>
-        <p>Trades are paginated in the browser to keep rendering responsive.</p>
-      </div>
-      <label class="filter-label">
-        <span>Strategy</span>
-        <select data-ledger-filter>
-          <option value="all" ${state.ledgerFilter === "all" ? "selected" : ""}>All strategies</option>
-          ${state.strategies
-            .filter((strategy) => Number(strategy.id) !== GLOBAL_STRATEGY_ID)
-            .map((strategy) => `<option value="${strategy.id}" ${String(state.ledgerFilter) === String(strategy.id) ? "selected" : ""}>${strategyName(strategy.id)}</option>`)
-            .join("")}
-        </select>
-      </label>
-    </section>
     <section class="panel">
       <div class="panel-heading">
-        <h2>Current Positions</h2>
-        <span>${positions.length} rows</span>
+        <h2>Current Holdings</h2>
+        <span>${holdings.length} position${holdings.length === 1 ? "" : "s"}</span>
       </div>
-      ${positionsTable(positions, true)}
+      ${holdingsTable(holdings, true)}
     </section>
-    <section class="panel">
+    <section class="panel" style="margin-top: 18px;">
       <div class="panel-heading">
-        <h2>Trades</h2>
-        <span>${trades.length} rows</span>
+        <h2>Orders</h2>
+        <span>${orders.length} rows</span>
       </div>
-      ${tradesTable(pageTrades)}
+      <div class="notice">Orders shown with 1-day delay.</div>
+      ${ordersTable(pageOrders)}
       <div class="pagination">
         <button type="button" data-page-prev ${state.tradePage <= 1 ? "disabled" : ""} aria-label="Previous page"><i data-lucide="chevron-left"></i></button>
         <span>Page ${state.tradePage} of ${pages}</span>
@@ -468,65 +404,33 @@ function renderLedger() {
   `;
 }
 
-function filterByStrategy(rows) {
-  if (state.ledgerFilter === "all") return rows;
-  return rows.filter((row) => String(row.strategy_id) === String(state.ledgerFilter));
-}
 
-function positionsTable(rows, includeStrategy) {
-  if (!rows.length) return emptyPanel("No positions found");
+function ordersTable(rows) {
+  if (!rows.length) return emptyPanel("No orders found");
   return `
     <div class="table-wrap">
       <table>
         <thead>
           <tr>
-            ${includeStrategy ? "<th>Strategy</th>" : ""}
-            <th>Asset</th>
+            <th>Filled At</th>
+            <th>Symbol</th>
+            <th>Side</th>
             <th class="numeric">Qty</th>
-            <th class="numeric">Avg Entry</th>
-            <th class="numeric">Unrealized PnL</th>
+            <th>Type</th>
+            <th class="numeric">Fill Price</th>
+            <th>Status</th>
           </tr>
         </thead>
         <tbody>
           ${rows.map((row) => `
             <tr>
-              ${includeStrategy ? `<td>${strategyName(row.strategy_id)}</td>` : ""}
-              <td>${assetDisplay(row.asset_id)}</td>
-              <td class="numeric">${formatQty(row.current_qty)}</td>
-              <td class="numeric">${formatCurrency(row.avg_entry_price)}</td>
-              <td class="numeric ${Number(row.unrealized_pnl) >= 0 ? "positive" : "negative"}">${formatCurrency(row.unrealized_pnl)}</td>
-            </tr>
-          `).join("")}
-        </tbody>
-      </table>
-    </div>
-  `;
-}
-
-function tradesTable(rows) {
-  if (!rows.length) return emptyPanel("No trades found");
-  return `
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Time</th>
-            <th>Strategy</th>
-            <th>Asset</th>
-            <th>Action</th>
-            <th class="numeric">Price</th>
-            <th class="numeric">Qty</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rows.map((row) => `
-            <tr>
-              <td>${formatDateTime(row.time)}</td>
-              <td>${strategyName(row.strategy_id)}</td>
-              <td>${assetDisplay(row.asset_id)}</td>
-              <td><span class="action-pill">${row.action}</span></td>
-              <td class="numeric">${formatCurrency(row.price)}</td>
-              <td class="numeric">${formatQty(row.qty)}</td>
+              <td>${formatDateTime(row.filled_at ?? row.submitted_at)}</td>
+              <td><strong>${row.symbol}</strong></td>
+              <td><span class="side-badge ${(row.side ?? "").toLowerCase()}">${row.side}</span></td>
+              <td class="numeric">${formatQty(row.fill_quantity ?? row.quantity)}</td>
+              <td>${row.order_type ?? "-"}</td>
+              <td class="numeric">${formatCurrency(row.fill_price)}</td>
+              <td>${row.status ?? "-"}</td>
             </tr>
           `).join("")}
         </tbody>
@@ -541,11 +445,11 @@ function emptyPanel(message) {
 
 function render() {
   destroyCharts();
-  const content = state.route === "analytics" ? renderAnalytics() : state.route === "ledger" ? renderLedger() : renderDashboard();
+  const content = state.route === "performance" ? renderPerformance() : state.route === "ledger" ? renderLedger() : renderDashboard();
   app.innerHTML = shell(content);
   bindEvents();
   createIcons({ icons });
-  if (state.route === "analytics" && state.analytics) {
+  if (state.route === "performance" && state.performance) {
     requestAnimationFrame(renderCharts);
   }
 }
@@ -559,23 +463,6 @@ function bindEvents() {
     state.darkMode = !state.darkMode;
     localStorage.setItem("reap-theme", state.darkMode ? "dark" : "light");
     applyTheme();
-    render();
-  });
-  document.querySelector("[data-strategy-menu-toggle]")?.addEventListener("click", () => {
-    state.strategyMenuOpen = !state.strategyMenuOpen;
-    render();
-  });
-  document.querySelectorAll("[data-strategy-toggle]").forEach((input) => {
-    input.addEventListener("change", () => {
-      const id = Number(input.dataset.strategyToggle);
-      if (input.checked) state.selectedStrategies.add(id);
-      else state.selectedStrategies.delete(id);
-      render();
-    });
-  });
-  document.querySelector("[data-ledger-filter]")?.addEventListener("change", (event) => {
-    state.ledgerFilter = event.target.value;
-    state.tradePage = 1;
     render();
   });
   document.querySelector("[data-page-prev]")?.addEventListener("click", () => {
@@ -594,49 +481,32 @@ function destroyCharts() {
 }
 
 function renderCharts() {
-  if (!state.analytics) return;
+  if (!state.performance) return;
   destroyCharts();
-  state.charts.equity = makeLineChart("equityChart", buildEquitySeries(), { xTitle: "Timestamp", yTitle: "Total equity", yFormat: "currency" });
-  state.charts.sharpe = makeLineChart("sharpeChart", buildMetricSeries("sharpe_ratio"), { xTitle: "Date", yTitle: "Sharpe ratio", yFormat: "number" });
-  state.charts.beta = makeLineChart("betaChart", buildMetricSeries("beta"), { xTitle: "Date", yTitle: "Beta", yFormat: "number" });
-  state.charts.drawdown = makeLineChart("drawdownChart", buildMetricSeries("max_drawdown"), { xTitle: "Date", yTitle: "Max drawdown", yFormat: "percent" });
+  const { equity, metrics } = state.performance;
+  state.charts.equity = makeLineChart("equityChart", buildSeries(equity, "date", "total_equity"), { xTitle: "Date", yTitle: "Total equity", yFormat: "currency" });
+  state.charts.sharpe = makeLineChart("sharpeChart", buildSeries(metrics, "date", "sharpe_ratio"), { xTitle: "Date", yTitle: "Sharpe ratio", yFormat: "number" });
+  state.charts.drawdown = makeLineChart("drawdownChart", buildSeries(metrics, "date", "max_drawdown"), { xTitle: "Date", yTitle: "Max drawdown", yFormat: "percent" });
 }
 
-function buildEquitySeries() {
-  return seriesByStrategy(state.analytics.equity, "time", "total_equity", formatAxisDateTime);
-}
-
-function buildMetricSeries(field) {
-  return seriesByStrategy(state.analytics.metrics, "date", field, formatAxisDate);
-}
-
-function seriesByStrategy(rows, xField, yField, labelFormatter) {
-  const selectedRows = rows.filter((row) => state.selectedStrategies.has(Number(row.strategy_id)));
-  const xValues = Array.from(new Set(selectedRows.map((row) => row[xField]))).sort();
-  const labels = xValues.map(labelFormatter);
-  const datasets = Array.from(state.selectedStrategies).map((strategyId, index) => {
-    const color = palette[index % palette.length];
-    const sparseSeries = xValues.length <= 40;
-    const values = new Map(
-      rows
-        .filter((row) => Number(row.strategy_id) === Number(strategyId))
-        .map((row) => [row[xField], Number(row[yField]) || 0]),
-    );
-    return {
-      label: strategyName(strategyId),
-      data: xValues.map((xValue) => values.get(xValue) ?? null),
-      borderColor: color,
-      backgroundColor: `${color}22`,
-      borderDash: index % 3 === 1 ? [8, 4] : index % 3 === 2 ? [3, 3] : [],
+function buildSeries(rows, xField, yField) {
+  const labels = rows.map((row) => formatAxisDate(row[xField]));
+  const data = rows.map((row) => (Number.isFinite(Number(row[yField])) ? Number(row[yField]) : null));
+  return {
+    labels,
+    datasets: [{
+      label: yField.replace(/_/g, " "),
+      data,
+      borderColor: primaryColor,
+      backgroundColor: `${primaryColor}22`,
       borderWidth: 3,
-      pointRadius: sparseSeries ? 3 : 0,
+      pointRadius: rows.length <= 40 ? 3 : 0,
       pointHoverRadius: 5,
       tension: 0.2,
       fill: false,
       spanGaps: true,
-    };
-  });
-  return { labels, datasets };
+    }],
+  };
 }
 
 function makeLineChart(id, series, config) {

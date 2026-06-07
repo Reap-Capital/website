@@ -445,7 +445,7 @@ select {
 
 .subchart-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
 }
 
@@ -470,6 +470,41 @@ select {
 .action-pill {
   background: var(--black);
   color: var(--white);
+}
+
+.symbol-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.side-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 2px 7px;
+  border-radius: 0;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: var(--black);
+  color: var(--white);
+}
+
+.side-badge.short {
+  background: #9d0208;
+  color: #fff;
+}
+
+.side-badge.buy {
+  background: #2d6a4f;
+  color: #fff;
+}
+
+.side-badge.sell {
+  background: #9d0208;
+  color: #fff;
 }
 
 .pagination {
